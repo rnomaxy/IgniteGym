@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { FlatList } from "react-native";
-import { Heading, HStack, VStack, Text, FabLabel } from "@gluestack-ui/themed";
+import { useNavigation } from "@react-navigation/native";
+import { Heading, HStack, VStack, Text } from "@gluestack-ui/themed";
+
+import { AppNavigatorRoutesProps } from "@routes/app.routes";
 
 import { HomeHeader } from "@components/HomeHeader";
 import { Group } from "@components/Group";
@@ -15,6 +18,13 @@ export function Home() {
     ])
     const [groups, setGroups] = useState(["Costas", "Biceps", "Triceps", "Ombro"])
     const [groupSelected, setGroupSelected] = useState("Costas")
+
+    const navigation = useNavigation<AppNavigatorRoutesProps>()
+
+    function handleOpenExerciseDetails(){
+        navigation.navigate("exercise")
+    }
+
     return (
         <VStack flex={1}>
             <HomeHeader />
@@ -46,13 +56,11 @@ export function Home() {
                 <FlatList
                     data={exercise}
                     keyExtractor={(item) => item}
-                    renderItem={({ item }) => <ExerciseCard />}
+                    renderItem={({ item }) => <ExerciseCard onPress={handleOpenExerciseDetails} />}
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={{ paddingBottom: 20 }}
                 />
-
             </VStack>
-
         </VStack>
     );
 }
