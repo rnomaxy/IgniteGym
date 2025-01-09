@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from "react-native";
-import { Center, VStack, Text, Heading, useToast } from "@gluestack-ui/themed";
+import { Center, VStack, Text, Heading, useToast, ToastTitle, Toast } from "@gluestack-ui/themed";
 import { Controller, useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
+
+import { api } from "@services/api";
+import { AppError } from "@utils/AppError";
 
 import * as ImagePicker from "expo-image-picker"
 import * as FileSystem from "expo-file-system"
@@ -25,16 +28,35 @@ type FormDataProps = {
 }
 
 const profileSchema = yup.object({
-    name: yup.string().required('Informe o nome.'),
-    password: yup.string().min(6, 'A senha deve ter pelo menos 6 dígitos').nullable().transform((value) => !!value ? value : null),
-    confirm_password: yup.string().nullable().transform((value) => !!value ? value : null).oneOf([yup.ref('password'), null], 'A confirmação de senha não confere.'),
+    name: yup
+        .string()
+        .required('Informe o nome.'),
+    password: yup.
+        string().
+        min(6, 'A senha deve ter pelo menos 6 dígitos')
+        .nullable()
+        .transform((value) => !!value ? value : null),
+    confirm_password: yup
+        .string()
+        .nullable()
+        .transform((value) => !!value ? value : null)
+        .oneOf([yup.ref('password'), null], 'A confirmação de senha não confere.')
+        .when('password', {
+            is: (Field: any) => Field,
+            then: (schema) =>
+                schema
+                    .nullable()
+                    .required('Informe a confirmação da senha.')
+                    .transform((value) => !!value ? value : null),
+        }),
 });
 
 export function Profile() {
+    const [isUpdate, setIsUpdate] = useState(false);
     const [userPhoto, setUserPhoto] = useState("https://github.com/rnomaxy.png")
 
     const toast = useToast();
-    const { user } = useAuth();
+    const { user, updateUserProfile } = useAuth();
     const { control, handleSubmit, formState: { errors } } = useForm<FormDataProps>({
         defaultValues: {
             name: user.name,
@@ -85,7 +107,38 @@ export function Profile() {
     }
 
     async function handleProfileUpdate(data: FormDataProps) {
-        console.log(data);
+        try {
+            setIsUpdate(true)
+
+            const userUpdated = user;
+            userUpdated.name = data.name;
+
+            await api.put('/users', data)
+
+            await updateUserProfile(userUpdated);
+
+            toast.show({
+                placement: "top",
+                render: () => (
+                    <Toast backgroundColor='$green500' action="success" variant="outline">
+                        <ToastTitle color="$white">Perfil atualizado com sucesso!</ToastTitle>
+                    </Toast>
+                ),
+            });
+        } catch (error) {
+            const isAppError = error instanceof AppError
+            const title = isAppError ? error.message : "Não foi possível atualizar os dados. Tente novamente mais tarde."
+            toast.show({
+                placement: "top",
+                render: () => (
+                    <Toast backgroundColor='$red500' action="error" variant="outline">
+                        <ToastTitle color="$white">{title}</ToastTitle>
+                    </Toast>
+                ),
+            });
+        } finally {
+            setIsUpdate(false)
+        }
     }
 
     return (
@@ -204,6 +257,7 @@ export function Profile() {
                                 <Button
                                     title="Atualizar"
                                     onPress={handleSubmit(handleProfileUpdate)}
+                                    isLoading={isUpdate}
                                 />
                             </Center>
                         </Center>
