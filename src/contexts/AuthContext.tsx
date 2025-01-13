@@ -7,7 +7,7 @@ import { storageUserSave, storageUserGet, storageUserRemove } from "@storage/sto
 
 export type AuthContextDataProps = {
     user: UserDTO;
-    updateUserProfile: (userUpdated: UserDTO)=> Promise<void>;
+    updateUserProfile: (userUpdated: UserDTO) => Promise<void>;
     signIn: (email: string, password: string) => Promise<void>;
     signOut: () => Promise<void>;
     isLoadingUserStorageData: boolean;
@@ -28,12 +28,12 @@ export function AuthContextProvider({ children }: AuthContextProviderProps) {
         setUser(userData);
     }
 
-    async function storageUserAndTokenSave(userData: UserDTO, token: string) {
+    async function storageUserAndTokenSave(userData: UserDTO, token: string, refresh_token: string) {
         try {
             setIsLoadingUserStorageData(true);
 
             await storageUserSave(userData);
-            await storageAuthTokenSave(token);
+            await storageAuthTokenSave({ token, refresh_token });
         } catch (error) {
             throw error;
         } finally {
@@ -45,9 +45,9 @@ export function AuthContextProvider({ children }: AuthContextProviderProps) {
         try {
             const { data } = await api.post('/sessions', { email, password });
 
-            if (data.user && data.token) {
+            if (data.user && data.token && data.refresh_token) {
                 setIsLoadingUserStorageData(true);
-                await storageUserAndTokenSave(data.user, data.token);
+                await storageUserAndTokenSave(data.user, data.token, data.refresh_token);
                 userAndTokenUpdate(data.user, data.token);
             }
 
@@ -87,7 +87,7 @@ export function AuthContextProvider({ children }: AuthContextProviderProps) {
             setIsLoadingUserStorageData(true);
 
             const userLogged = await storageUserGet();
-            const token = await storageAuthTokenGet();
+            const { token } = await storageAuthTokenGet();
 
             if (token && userLogged) {
                 userAndTokenUpdate(userLogged, token);
@@ -101,6 +101,13 @@ export function AuthContextProvider({ children }: AuthContextProviderProps) {
 
     useEffect(() => {
         loadUserData();
+    }, []);
+
+    useEffect(() => {
+        const subscribe = api.registerInterceptTokenManager(signOut);
+        return () => {
+            subscribe();
+        }
     }, [])
 
     return (
